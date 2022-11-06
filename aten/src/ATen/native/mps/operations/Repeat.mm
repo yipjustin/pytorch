@@ -113,4 +113,10 @@ Tensor repeat_mps(const Tensor& self, IntArrayRef repeats) {
   return result;
 }
 
-} // namespace at:;native
+Tensor reapeat_interleave_mps(const Tensor& self, IntArrayRef repeats)
+  using namespace mps;
+
+  
+  return output;
+}
+}
