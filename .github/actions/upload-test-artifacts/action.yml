@@ -42,6 +42,7 @@ runs:
       env:
         FILE_SUFFIX: ${{ inputs.file-suffix }}
       run: |
+        set -x
         # Remove any previous test reports if they exist
         rm -f usage-log-*.zip
         # this workflow is also run in bazel build test, but we dont generate usage reports for it
@@ -78,7 +79,7 @@ runs:
       run: |
         # -ir => recursive include all files in pattern
         7z a "usage-log-$Env:FILE_SUFFIX.zip" 'usage_log.txt'
-        7z a "test-reports-$Env:FILE_SUFFIX.zip" -ir'!test\*.log'
+        7z a "usage-log-$Env:FILE_SUFFIX.zip" -ir'!test\*.log'
 
     # S3 upload
     - name: Store Test Downloaded JSONs on S3
