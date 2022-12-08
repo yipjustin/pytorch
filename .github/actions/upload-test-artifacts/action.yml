@@ -49,6 +49,7 @@ runs:
         if [ -f 'usage_log.txt' ]; then
             zip "usage-log-${FILE_SUFFIX}.zip" 'usage_log.txt'
         fi
+        zip -r "usage-log-${FILE_SUFFIX}.zip" test -i '*.log'
 
     # Windows zip
     - name: Zip JSONs for upload
@@ -77,6 +78,7 @@ runs:
       run: |
         # -ir => recursive include all files in pattern
         7z a "usage-log-$Env:FILE_SUFFIX.zip" 'usage_log.txt'
+        7z a "test-reports-$Env:FILE_SUFFIX.zip" -ir'!test\*.log'
 
     # S3 upload
     - name: Store Test Downloaded JSONs on S3
