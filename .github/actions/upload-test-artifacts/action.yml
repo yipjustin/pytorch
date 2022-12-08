@@ -50,7 +50,9 @@ runs:
         if [ -f 'usage_log.txt' ]; then
             zip "usage-log-${FILE_SUFFIX}.zip" 'usage_log.txt'
         fi
-        zip -r "usage-log-${FILE_SUFFIX}.zip" test -i '*.log'
+        if [ -n "$(find test -name '*.log')" ] ; then
+            zip -r "usage-log-${FILE_SUFFIX}.zip" test -i '*.log'
+        fi
 
     # Windows zip
     - name: Zip JSONs for upload
