@@ -43,7 +43,7 @@ void fill_pool_desc(MPSGraphPooling2DOpDescriptor* desc,
   }
 }
 
-Tensor _mps_max_pool2d(
+Tensor mps_max_pool2d(
     const Tensor& input_t,
     IntArrayRef kernel_size,
     IntArrayRef stride,
