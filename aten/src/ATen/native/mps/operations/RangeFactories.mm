@@ -132,7 +132,15 @@ Tensor& range_mps_out(const Scalar& start, const Scalar& end, const Scalar& step
     auto xend = end.to<accscalar_t>();
     auto xstep = step.to<accscalar_t>();
     
-    double size_d = ((xend - xstart) / xstep) + 1;
+    // double size_d = ((xend - xstart) / xstep) + 1;
+    double size_d;
+    if (std::is_same<scalar_t, int64_t>::value) {
+      size_d = static_cast<double>(end.to<accscalar_t>() - start.to<accscalar_t>())
+                / step.to<accscalar_t>() + 1;
+    } else {
+      size_d = static_cast<double>(end.to<double>() - start.to<double>())
+                / step.to<double>() + 1;
+    }
 
     TORCH_CHECK(xstep > 0 || xstep < 0, "step must be nonzero");
     TORCH_CHECK(std::isfinite(static_cast<double>(xstart)) &&
