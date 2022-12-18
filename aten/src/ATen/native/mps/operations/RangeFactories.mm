@@ -131,16 +131,7 @@ Tensor& range_mps_out(const Scalar& start, const Scalar& end, const Scalar& step
     auto xstart = start.to<accscalar_t>();
     auto xend = end.to<accscalar_t>();
     auto xstep = step.to<accscalar_t>();
-
-    // double size_d;
-    // if (std::is_same<scalar_t, int64_t>::value) {
-    //   size_d = std::ceil(static_cast<double>(end.to<accscalar_t>() - start.to<accscalar_t>())
-    //                       / step.to<accscalar_t>() + 1);
-    // } else {
-    //   size_d = std::ceil(static_cast<double>(end.to<double>() - start.to<double>())
-    //                       / step.to<double>() + 1);
-    // }
-
+    
     double size_d = ((xend - xstart) / xstep) + 1;
 
     TORCH_CHECK(xstep > 0 || xstep < 0, "step must be nonzero");
@@ -152,7 +143,7 @@ Tensor& range_mps_out(const Scalar& start, const Scalar& end, const Scalar& step
 
     TORCH_CHECK(size_d >= 0 && size_d <= static_cast<double>(std::numeric_limits<int64_t>::max()),
               "invalid size, possible overflow?");
-    // int64_t size = static_cast<int64_t>(((xend - xstart) / xstep) + 1);
+
     int64_t size = static_cast<int64_t>(size_d);
   
     int64_t numel = result.numel();
