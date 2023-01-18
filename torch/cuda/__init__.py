@@ -495,7 +495,7 @@ def set_stream(stream: Stream):
     torch._C._cuda_setStream(stream_id=stream.stream_id, device_index=stream.device_index, device_type=stream.device_type)
 
 
-def _parse_visible_devices() -> Union[Set[int], Set[str]]:
+def _parse_visible_devices() -> Union[Set[int], List[str]]:
     """Parse CUDA_VISIBLE_DEVICES environment variable."""
     var = os.getenv("CUDA_VISIBLE_DEVICES")
     if var is None:
@@ -512,15 +512,15 @@ def _parse_visible_devices() -> Union[Set[int], Set[str]]:
                 idx += 1
         return int(s[:idx]) if idx > 0 else -1
     if var.startswith("GPU-"):
-        rcs: Set[str] = set()
+        rcs: List[str] = []
         for elem in var.split(","):
             # Repeated id results in empty set
             if elem in rcs:
-                return cast(Set[str], set())
+                return cast(List[str], [])
             # Anythin other but GPU- is ignored
             if not elem.startswith("GPU-"):
                 break
-            rcs.add(elem)
+            rcs.append(elem)
         return rcs
     # CUDA_VISIBLE_DEVICES uses something like strtoul
     # which makes `1gpu2,2ampere` is equivalent to `1,2`
@@ -587,7 +587,7 @@ def _raw_device_uuid_nvml() -> Optional[List[str]]:
     return uuids
 
 
-def _transform_uuid_to_ordinals(candidates: Set[str], uuids: List[str]) -> Set[int]:
+def _transform_uuid_to_ordinals(candidates: List[str], uuids: List[str]) -> Set[int]:
     """Given the set of partial uuids and list of known uuids builds
     a set of ordinals excluding ambiguous partials IDs"""
     def uuid_to_orinal(candidate: str, uuids: List[str]) -> int:
@@ -604,8 +604,10 @@ def _transform_uuid_to_ordinals(candidates: Set[str], uuids: List[str]) -> Set[i
     rc: Set[int] = set()
     for candidate in candidates:
         idx = uuid_to_orinal(candidate, uuids)
-        if idx >= 0:
-            rc.add(idx)
+        # First invalid ordinal stops parsing
+        if idx < 0:
+            break
+        rc.add(idx)
     return rc
 
 
@@ -616,11 +618,11 @@ def _device_count_nvml() -> int:
     if not visible_devices:
         return 0
     try:
-        if type(next(iter(visible_devices))) is str:
+        if type(visible_devices) is list:
             uuids = _raw_device_uuid_nvml()
             if uuids is None:
                 return -1
-            visible_devices = _transform_uuid_to_ordinals(cast(Set[str], visible_devices), uuids)
+            visible_devices = _transform_uuid_to_ordinals(visible_devices, uuids)
             raw_cnt = len(uuids)
         else:
             raw_cnt = _raw_device_count_nvml()
