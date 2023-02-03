@@ -1325,6 +1325,7 @@ def main():
         # downloading test cases configuration to local environment
         get_test_case_configs(dirpath=test_directory)
 
+    selected_tests = ['distributed/test_nccl']
     failure_messages = []
 
     # parallel = in parallel with other files
