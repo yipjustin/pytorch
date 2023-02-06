@@ -457,7 +457,21 @@ class SizeVarAllocator(object):
         # Assign all symbolic shapes needed to local variables
         needed = set(self.var_to_val.keys()) - set(self.replacements.keys())
 
-        for name, value in graph_inputs.items():
+        def is_expr(x):
+            return isinstance(x[1], sympy.Expr)
+
+        graph_inputs_expr = list(filter(is_expr, graph_inputs.items()))
+        graph_inputs_tensors = list(
+            filter(lambda x: not is_expr(x), graph_inputs.items())
+        )
+
+        for name, shape in graph_inputs_expr:
+            shape = self.simplify(shape)
+            if shape in needed:
+                needed.remove(shape)
+                code.writeline(f"{self.declare}{shape} = {name}{self.ending}")
+
+        for name, value in graph_inputs_tensors:
             if isinstance(value.data, ir.ReinterpretView):
                 value = value.data.data
             shapes = value.get_size()
@@ -469,7 +483,7 @@ class SizeVarAllocator(object):
                         f"{self.declare}{shape} = {sizeof(name)}[{dim}]{self.ending}"
                     )
 
-        for name, value in graph_inputs.items():
+        for name, value in graph_inputs_tensors:
             if isinstance(value.data, ir.ReinterpretView):
                 value = value.data.data
             shapes = value.get_stride()

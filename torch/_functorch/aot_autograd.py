@@ -1051,7 +1051,7 @@ class AOTConfig:
 def aot_dispatch_base(flat_fn, flat_args: List[Tensor], aot_config: AOTConfig):
     # flat_args is used by make_fx and aot_config.fw_compiler
     # clone flat_args to avoid flat_args shape changed by inplace ops (unsqueeze_)
-    tmp_flat_args = [torch._prims_common.clone_preserve_strides(x) for x in flat_args]
+    tmp_flat_args = [torch._prims_common.clone_preserve_strides(x) if isinstance(x, torch.Tensor) else x for x in flat_args]
     with enable_python_dispatcher():
         fw_module = make_fx(flat_fn, aot_config.decompositions)(*tmp_flat_args)
     if config.debug_graphs:
@@ -1402,7 +1402,9 @@ def aot_wrapper_dedupe(
         ok = True
 
         for i, a in enumerate(flat_args):
-            if a not in args_set:
+            if not isinstance(a, torch.Tensor):
+                leaf_flat_args.append(a)
+            elif a not in args_set:
                 args_set.add(a)
                 leaf_flat_args.append(a)
             elif not fw_metadata.input_info[i].mutates_data and not fw_metadata.input_info[i].mutates_metadata:
@@ -1874,12 +1876,20 @@ def aot_dispatch_autograd(flat_fn, flat_args: List[Any], aot_config: AOTConfig):
 
             def call_compiled_backward():
                 if CompiledFunction.compiled_bw is None:
-                    # TODO - pass in fake tensors ?
-                    context = disable_autocast_manager if disable_amp else nullcontext
-                    with context(), track_graph_compiling(aot_config, "backward"):
-                        CompiledFunction.compiled_bw = aot_config.bw_compiler(
-                            bw_module, all_args
+                    if config.use_dynamic_shapes:
+                        all_args_list = list(all_args)
+                        CompiledFunction.compiled_bw = create_aot_dispatcher_function(
+                            bw_module, all_args_list, AOTConfig(
+                                aot_config.bw_compiler, None, None,
+                                aot_config.decompositions, 0, aot_config.aot_i
+                            )
                         )
+                    else:
+                        context = disable_autocast_manager if disable_amp else nullcontext
+                        with context(), track_graph_compiling(aot_config, "backward"):
+                            CompiledFunction.compiled_bw = aot_config.bw_compiler(
+                                bw_module, all_args
+                            )
 
                 ctx.maybe_clear_saved_tensors()
                 out = call_func_with_args(
@@ -2147,8 +2157,11 @@ def create_aot_dispatcher_function(
 
         def process_inputs(flat_args):
             if config.use_fake_tensor or isinstance(fake_mode, FakeTensorMode):
-
                 def convert(idx, x):
+                    if config.use_dynamic_shapes:
+                        from torch._dynamo.source import ConstantSource
+                        if isinstance(x, int):
+                            return shape_env.create_symintnode(shape_env.create_symbol(x, ConstantSource(f"sym_{idx}")))
                     if not isinstance(x, torch.Tensor):
                         return x
                     if isinstance(x, FakeTensor):
