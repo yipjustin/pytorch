@@ -4,6 +4,7 @@
 #include <torch/csrc/distributed/c10d/default_comm_hooks.hpp>
 
 #include <functional>
+#include "c10/core/ScalarType.h"
 
 #include <c10/core/DeviceGuard.h>
 #include <c10/core/StreamGuard.h>
@@ -309,11 +310,14 @@ void Reducer::initialize_local_used_map() {
 void Reducer::check_grad_layout(
     const at::Tensor& grad,
     const at::Tensor& bucket_view) {
-  // Ensure that the gradient type matches the bucket type.
+  // Ensure that the gradient type matches the bucket type, or mixed precision
+  // type if we are training with mixed precision.
+  auto type = mixed_precision_param_dtype_ ?
+    *mixed_precision_param_dtype_ : bucket_view.options().dtype().toScalarType();
   REDUCER_CHECK(
-      grad.options().type_equal(bucket_view.options()),
+      grad.options().dtype().toScalarType() == type,
       logger_,
-      c10::str("Expected ", bucket_view.toString(), ", got ", grad.toString()));
+      c10::str("Expected ", type, ", got ", grad.toString()));
 
   TORCH_INTERNAL_ASSERT(grad.device() == bucket_view.device());
   TORCH_INTERNAL_ASSERT(grad.numel() == bucket_view.numel());
