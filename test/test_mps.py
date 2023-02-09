@@ -8872,6 +8872,8 @@ class TestConsistency(TestCase):
         'nn.functional.bilinear': ['f32'],
         'linalg.solve_triangular': ['f32'],
         'triangular_solve': ['f32'],
+        'linalg.inv': ['f32'],
+        'linalg.inv_ex': ['f32'],
     }
 
 
@@ -9085,7 +9087,6 @@ class TestConsistency(TestCase):
         'diag_embed': [torch.uint8],
         'diagonal_scatter': [torch.uint8],
         'index_add': None,
-        'linalg.inv': [torch.float32],
         'long': None,
         'nn.functional.conv1d': [torch.int64],
         'nn.functional.conv2d': [torch.int64],
