@@ -559,6 +559,9 @@ def clean_and_assemble_instructions(
     }
     if sys.version_info >= (3, 11):
         # generated code doesn't contain exceptions, so leave exception table empty
+        # TODO: generated code might look very similar to the original function,
+        # I think in the case where there is a graph break with 0 ops. In this case,
+        # exception table needs to be modified.
         code_options["co_exceptiontable"] = b""
     return instructions, types.CodeType(*[code_options[k] for k in keys])
 
