@@ -376,7 +376,7 @@ void StandardMemoryPlanner::allocateManagedTensors() {
       group_idx++;
       continue;
     }
-    at::StorageImpl* storageImpl = &ms.second;
+    at::StorageImpl* storageImpl = ms.second.get();
     TORCH_DCHECK_LE(offset + tensor_size, managed_bytes_);
     void* src = static_cast<void*>(start + offset);
 
@@ -427,9 +427,10 @@ void StandardMemoryPlanner::deallocateManagedTensors() {
         if (managed_tensor_storage_impls_.size() == group_idx) {
           managed_tensor_storage_impls_.emplace_back(
               0, // will be set at end of outer loop
-              std::move(*tensorStorageImpl));
+              c10::intrusive_ptr<at::StorageImpl>::reclaim(tensorStorageImpl));
         }
-        at::StorageImpl* newImpl = &managed_tensor_storage_impls_.back().second;
+        at::StorageImpl* newImpl =
+            managed_tensor_storage_impls_.back().second.get();
 
         // We want to manage StorageImpls' lifetimes ourselves, but TensorImpl
         // expects to refcount them. unsafe_adapt_non_heap_allocated is our
@@ -447,7 +448,7 @@ void StandardMemoryPlanner::deallocateManagedTensors() {
                 unsafe_adapt_non_heap_allocated(newImpl, tensors.size())));
       } else if (C10_UNLIKELY(
                      tensorStorageImpl !=
-                     &managed_tensor_storage_impls_[group_idx].second)) {
+                     managed_tensor_storage_impls_[group_idx].second.get())) {
         tensorStorageImpl->reset();
 
         // If somehow the tensor got different storage, put it back to
@@ -455,12 +456,12 @@ void StandardMemoryPlanner::deallocateManagedTensors() {
         tensor->unsafeGetTensorImpl()->set_storage_keep_dtype(at::Storage(
             c10::intrusive_ptr<at::StorageImpl>::
                 unsafe_adapt_non_heap_allocated(
-                    &managed_tensor_storage_impls_[group_idx].second,
+                    managed_tensor_storage_impls_[group_idx].second.get(),
                     tensors.size())));
       }
       TORCH_DCHECK_EQ(
           tensor->storage().unsafeGetStorageImpl(),
-          &managed_tensor_storage_impls_[group_idx].second);
+          managed_tensor_storage_impls_[group_idx].second.get());
       max = std::max(max, current_size);
     }
     // Static runtime does not know the size of tensors statically, so we use

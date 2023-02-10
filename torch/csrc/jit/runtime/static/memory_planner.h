@@ -162,19 +162,12 @@ class MemoryPlanner {
   }
 
   bool isManagedStorageImpl(const at::StorageImpl* impl) const {
-    if (managed_tensor_storage_impls_.empty()) {
-      return false;
+    for (auto& ms : managed_tensor_storage_impls_) {
+      if (ms.second.get() == impl) {
+        return true;
+      }
     }
-    // Comparing pointers that aren't within the same array is
-    // UB. We're doing fancy memory allocation stuff, so we cast to an
-    // integer type and carry on.
-    const auto impl_p = reinterpret_cast<uintptr_t>(impl);
-    const auto start =
-        reinterpret_cast<uintptr_t>(managed_tensor_storage_impls_.data());
-    const auto end = reinterpret_cast<uintptr_t>(
-        managed_tensor_storage_impls_.data() +
-        managed_tensor_storage_impls_.size());
-    return impl_p >= start && impl_p < end;
+    return false;
   }
 
   bool overlapWithInternalBuffer(void* data_ptr) {
@@ -199,7 +192,7 @@ class MemoryPlanner {
   // We don't have any guarantee that the model doesn't change the
   // Storage for managed tensors out from under us during execution,
   // so we have to check the StorageImpls each time we deallocate.
-  std::vector<std::pair<size_t, at::StorageImpl>>
+  std::vector<std::pair<size_t, c10::intrusive_ptr<at::StorageImpl>>>
       managed_tensor_storage_impls_{};
 
  private:
