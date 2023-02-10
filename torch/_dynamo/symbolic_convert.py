@@ -220,10 +220,28 @@ def _detect_and_normalize_assert_statement(
     return True
 
 
+def get_value(value):
+    output = None
+    try:
+        output = value.get_real_value().item()
+    except Exception as e:
+        if isinstance(e, torch._subclasses.fake_tensor.DataDependentOutputException):
+            config.rewrite_assert_with_torch_assert = False
+    return output
+
+
 def generic_jump(truth_fn: typing.Callable[[object], bool], push: bool):
     def inner(self: "InstructionTranslatorBase", inst: Instruction):
         value: VariableTracker = self.pop()
         self.output.guards.update(value.guards)
+        if (
+            isinstance(value, TensorVariable)
+            and self.output.compiler_fn.__name__ == "inductor"
+        ):
+            output = get_value(value)
+            if output:
+                self.jump(inst)
+                return
         if (
             config.rewrite_assert_with_torch_assert
             and _detect_and_normalize_assert_statement(self, truth_fn, push)
