@@ -290,38 +290,35 @@ class _force_original_view_tracking(_DecoratorContextManager):
     def clone(self):
         return self.__class__(self.mode)
 
+class _unsafe_preserve_version_counter(_DecoratorContextManager):
+    r"""DO NOT USE THIS UNLESS YOU KNOW EXACTLY WHAT YOU'RE DOING!
 
-class _force_original_view_tracking(_DecoratorContextManager):
-    r"""Context-manager that sets whether or not to always enable view-replay in autograd.
+    This context manager can lead to arbitrary silent-correctness issues in any other part of your code
+    (even the ones not touched directly by the context manager)!
 
-    ``set_view_replay_enabled`` will enable or disable view-replay based on its argument :attr:`mode`.
-    It can be used as a context-manager or as a function.
+    Ordinarily, autograd will track mutations to tensors by incrementing it's `._version` attribute.
+    This is generally important for correctness, as for example, mutating a tensor that autograd has saved
+    for the backwards pass can result in incorrect gradients, and autograd uses the version counter to detect
+    and error out in this situation.
 
-    This context manager is thread local; it will not affect computation
-    in other threads.
-
-    When a tensor view is mutated, the autograd engine needs to decide whether or not
-    to regenerate the "updated view" by either replaying the chain of views from the updated base,
-    or with a single call to as_strided.
-
-    If set_view_replay_enabled is set to True, then autograd will always use view replay.
-    Otherwise, it will fall back to its existing logic.
+    However, there are rare instances where it might be useful to hide mutations from autograd. For example:
+    if a tensor is very large, and you'd like to free its memory by storing it elsewhere, and re-populate
+    the tensor right before it is needed by autograd.
 
     Args:
-        mode (bool): Flag whether to enable view-replay (``True``), or disable
-                     (``False``).
+        tensor (torch.Tensor): the tensor in question, that you would like to preserve the version counter of.
+
+    .. note::
+        This API does not apply to :ref:`forward-mode AD <forward-mode-ad>`.
 
     """
 
-    def __init__(self, mode: bool) -> None:
-        self.mode = mode
-        self._force_original_view_tracking_guard = torch._C._ViewReplayEnabled(mode)
+    def __init__(self, tensor: torch.Tensor) -> None:
+        self.tensor = tensor
+        self.prev_version = tensor._version
 
     def __enter__(self) -> None:
         pass
 
     def __exit__(self, *args) -> None:
-        del self._force_original_view_tracking_guard
-
-    def clone(self):
-        return self.__class__(self.mode)
+        torch._C._autograd._unsafe_set_version_counter(self.tensor, self.prev_version)
