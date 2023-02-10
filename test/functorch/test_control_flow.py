@@ -578,7 +578,7 @@ class TestControlFlowTraced(TestCase):
 
         def f(xs, y):
             return control_flow.map(map_fn, xs, y)
-        
+
         example_inputs = (torch.ones(3, 2, 4), torch.ones(4))
         functional_f = functionalize(f)
         self.assertEqual(functional_f(*example_inputs), f(*example_inputs))
@@ -589,7 +589,7 @@ class TestControlFlowTraced(TestCase):
         for node in gm.body_graph_0.graph.nodes:
             if node.op == "call_function":
                 self.assertTrue(not node.target._schema.is_mutable)
-        
+
         gm = make_fx(functionalize(f), tracing_mode="fake")(*example_inputs)
         self.assertEqual(gm(*example_inputs), f(*example_inputs))
 
@@ -609,7 +609,7 @@ class TestControlFlowTraced(TestCase):
         functional_f = functionalize(f)
         with self.assertRaisesRegex(UnsupportedAliasMutationException, "torch.map is mutating the input!"):
             functional_f(*example_inputs)
-    
+
     def test_map_functionalized_elem_mutation(self):
         def map_fn(x, y):
             x.add_(4)
@@ -622,7 +622,7 @@ class TestControlFlowTraced(TestCase):
         functional_f = functionalize(f)
         with self.assertRaisesRegex(UnsupportedAliasMutationException, "torch.map is mutating the input!"):
             functional_f(*example_inputs)
-    
+
     def test_map_functionalized_elem_alias(self):
         def map_fn(x):
             x.view(x.shape)
